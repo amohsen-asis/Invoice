@@ -232,80 +232,226 @@
     }
 
     async function exportToPdf() {
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const container = document.getElementById("invoice-container");
-      const canvas = await html2canvas(container, { scale: 2 });
-      const imgData = canvas.toDataURL("image/png");
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const container = document.getElementById("invoice-container");
+  const canvas = await html2canvas(container, { scale: 2 });
+  const imgData = canvas.toDataURL("image/png");
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      pdf.addImage(imgData, "PNG", 0, 10, pdfWidth, pdfHeight);
-      pdf.save("invoice-report.pdf");
-    }
+  // Add header
+  pdf.setFontSize(18);
+  pdf.text("Company Name", pdfWidth / 2, 10, { align: "center" });
+  pdf.setFontSize(14);
+  pdf.text("Invoice Report", pdfWidth / 2, 20, { align: "center" });
 
-    async function exportToExcel() {
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet("Invoices");
+  // Add main content below the header
+  const contentStartY = 30; // Start position for the content after header
+  pdf.addImage(imgData, "PNG", 0, contentStartY, pdfWidth, pdfHeight);
 
-      worksheet.columns = [
-        { header: "Invoice Number", key: "number", width: 15 },
-        { header: "Date", key: "date", width: 15 },
-        { header: "Customer", key: "customer", width: 25 },
-        { header: "Item Name", key: "item", width: 20 },
-        { header: "Description", key: "description", width: 30 },
-        { header: "Quantity", key: "quantity", width: 10 },
-        { header: "Price", key: "price", width: 10 },
-        { header: "Total", key: "total", width: 10 },
-      ];
+  // Add footer
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  pdf.setFontSize(10);
+  pdf.text("© 2025 Company Name", pdfWidth / 2, pageHeight - 10, { align: "center" });
 
-      invoices.forEach(invoice => {
-        invoice.items.forEach(item => {
-          worksheet.addRow({
-            number: invoice.number,
-            date: invoice.date,
-            customer: invoice.customer,
-            item: item.name,
-            description: item.description,
-            quantity: item.quantity,
-            price: item.price,
-            total: (item.quantity * item.price).toFixed(2),
-          });
-        });
+  // Save the file
+  pdf.save("invoice-report.pdf");
+}
+
+
+async function exportToExcel() {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet("Invoices");
+
+  // Add a styled header row
+  worksheet.mergeCells("A1:H1");
+  worksheet.getCell("A1").value = "Company Name";
+  worksheet.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
+  worksheet.getCell("A1").font = { bold: true, size: 16 };
+
+  worksheet.mergeCells("A2:H2");
+  worksheet.getCell("A2").value = "Invoice Report";
+  worksheet.getCell("A2").alignment = { horizontal: "center", vertical: "middle" };
+  worksheet.getCell("A2").font = { bold: true, size: 14 };
+
+  worksheet.addRow([]);
+
+  // Define table columns
+  worksheet.columns = [
+    { header: "Invoice Number", key: "number", width: 15 },
+    { header: "Date", key: "date", width: 15 },
+    { header: "Customer", key: "customer", width: 25 },
+    { header: "Item Name", key: "item", width: 20 },
+    { header: "Description", key: "description", width: 30 },
+    { header: "Quantity", key: "quantity", width: 10 },
+    { header: "Price", key: "price", width: 10 },
+    { header: "Total", key: "total", width: 10 },
+  ];
+
+  // Add invoice data rows
+  invoices.forEach((invoice) => {
+    invoice.items.forEach((item) => {
+      worksheet.addRow({
+        number: invoice.number,
+        date: invoice.date,
+        customer: invoice.customer,
+        item: item.name,
+        description: item.description,
+        quantity: item.quantity,
+        price: item.price,
+        total: (item.quantity * item.price).toFixed(2),
       });
+    });
+  });
 
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "invoice-report.xlsx";
-      link.click();
+  // Add a footer row
+  const footerRow = worksheet.addRow([]);
+  footerRow.getCell(1).value = "© 2025 Company Name";
+  footerRow.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
+  footerRow.font = { italic: true };
+  worksheet.mergeCells(`A${footerRow.number}:H${footerRow.number}`);
+
+  // Apply border styles to the header row
+  worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (rowNumber === 3) {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" },
+        };
+        cell.font = { bold: true };
+        cell.alignment = { horizontal: "center" };
+      });
     }
+  });
 
-    async function exportToJpg() {
-      const container = document.getElementById("invoice-container");
-      const canvas = await html2canvas(container, { scale: 2 });
-      const imgData = canvas.toDataURL("image/jpeg", 1.0);
+  // Export the workbook
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
 
-      const link = document.createElement("a");
-      link.href = imgData;
-      link.download = "invoice-report.jpg";
-      link.click();
-    }
+  // Trigger download
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "invoice-report.xlsx";
+  link.click();
+}
 
-    function exportToDom() {
-      const container = document.getElementById("invoice-container");
-      const domContent = container.outerHTML;
-      const blob = new Blob([domContent], { type: "text/html" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "invoice-report.html";
-      link.click();
-    }
+async function exportToJpg() {
+  const container = document.getElementById("invoice-container");
+
+  // Create a temporary container with the header, content, and footer
+  const tempContainer = document.createElement("div");
+  tempContainer.style.padding = "20px";
+  tempContainer.style.backgroundColor = "white";
+
+  // Add header
+  const header = document.createElement("div");
+  header.style.textAlign = "center";
+  header.style.marginBottom = "20px";
+  header.innerHTML = `
+    <h1 style="margin: 0; font-size: 24px;">Company Name</h1>
+    <h2 style="margin: 0; font-size: 18px;">Invoice Report</h2>
+  `;
+  tempContainer.appendChild(header);
+
+  // Clone the content and add it to the temporary container
+  const contentClone = container.cloneNode(true);
+  tempContainer.appendChild(contentClone);
+
+  // Add footer
+  const footer = document.createElement("div");
+  footer.style.textAlign = "center";
+  footer.style.marginTop = "20px";
+  footer.style.fontStyle = "italic";
+  footer.innerHTML = `
+    <p style="margin: 0;">&copy; 2025 Company Name</p>
+  `;
+  tempContainer.appendChild(footer);
+
+  // Append the temporary container to the body to render it
+  document.body.appendChild(tempContainer);
+
+  // Generate the image using html2canvas
+  const canvas = await html2canvas(tempContainer, { scale: 2 });
+  const imgData = canvas.toDataURL("image/jpeg", 1.0);
+
+  // Trigger download
+  const link = document.createElement("a");
+  link.href = imgData;
+  link.download = "invoice-report.jpg";
+  link.click();
+
+  // Clean up the temporary container
+  document.body.removeChild(tempContainer);
+}
+
+
+function exportToDom() {
+  // Create a temporary container to hold the full structure
+  const tempContainer = document.createElement("div");
+  tempContainer.style.backgroundColor = "white";
+
+  // Add header
+  const header = document.createElement("header");
+  header.style.textAlign = "center";
+  header.style.marginBottom = "20px";
+  header.style.padding = "10px 0";
+  header.style.backgroundColor = "#f4f4f4";
+  header.style.borderBottom = "1px solid #ddd";
+  header.innerHTML = `
+    <h1 style="margin: 0; font-size: 24px;">Company Name</h1>
+    <h2 style="margin: 0; font-size: 18px;">Invoice Report</h2>
+  `;
+  tempContainer.appendChild(header);
+
+  // Clone the content and add it to the temporary container
+  const container = document.getElementById("invoice-container");
+  const contentClone = container.cloneNode(true);
+  tempContainer.appendChild(contentClone);
+
+  // Add footer
+  const footer = document.createElement("footer");
+  footer.style.textAlign = "center";
+  footer.style.marginTop = "20px";
+  footer.style.padding = "10px 0";
+  footer.style.backgroundColor = "#f4f4f4";
+  footer.style.borderTop = "1px solid #ddd";
+  footer.innerHTML = `
+    <p style="margin: 0;">&copy; 2025 Company Name</p>
+  `;
+  tempContainer.appendChild(footer);
+
+  // Serialize the temporary container into an HTML string
+  const domContent = tempContainer.outerHTML;
+
+  // Create a Blob and trigger download
+  const blob = new Blob([domContent], { type: "text/html" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "invoice-report.html";
+  link.click();
+}
+
 
     function exportToWord() {
-      const content = document.getElementById("invoice-container").outerHTML;
-      const blob = new Blob(["\ufeff", content], { type: "application/msword" });
+      const header = `
+    <header style="text-align: center; margin-bottom: 20px;">
+      <h1>Company Name</h1>
+      <h2>Invoice Report</h2>
+    </header>
+  `;
+  const footer = `
+    <footer style="text-align: center; margin-top: 20px;">
+      <p>&copy; 2025 Company Name</p>
+    </footer>
+  `;
+      const content = `<h1>Company Name</h1><h2>Invoice Report</h2>` + document.getElementById("invoice-container").outerHTML;
+      const blob = new Blob(["\ufeff", content, footer], { type: "application/msword" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
