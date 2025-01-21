@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice Report</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.23.6/docxtemplater.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    header, footer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      background-color: #f4f4f4;
+      text-align: center;
+      padding: 10px 0;
+    }
+
+    header {
+      top: 0;
+      border-bottom: 1px solid #ddd;
+      z-index: 10;
+    }
+
+    footer {
+      bottom: 0;
+      border-top: 1px solid #ddd;
+      z-index: 10;
+    }
+
+    .container {
+      margin: 120px 20px 60px;
+    }
+
+    .invoice-section {
+      margin-bottom: 40px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+
+    table, th, td {
+      border: 1px solid #ddd;
+    }
+
+    th, td {
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f9f9f9;
+    }
+
+    .export-controls {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+    }
+
+    select {
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+
+    .export-button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      background-color: #007BFF;
+      color: white;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+
+    .export-button:hover {
+      background-color: #0056b3;
+    }
+
+    .invoice-header {
+      margin-top: 20px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h2>Company Name</h2>
+    <p>Invoice Report</p>
+  </header>
+
+  <footer>
+    <p>&copy; 2025 Company Name</p>
+  </footer>
+
+  <div class="export-controls">
+    <select id="exportOptions">
+      <option value="pdf">Export to PDF</option>
+      <option value="excel">Export to Excel</option>
+      <option value="jpg">Export All to JPG</option>
+      <option value="dom">Export as DOM</option>
+      <option value="word">Export to Word</option>
+    </select>
+    <button class="export-button" onclick="handleExport()">Export</button>
+  </div>
+
+  <div class="container" id="invoice-container">
+    <!-- Dynamic invoices will be inserted here -->
+  </div>
+
+  <script>
+    const invoices = [
+      {
+        number: "12345",
+        date: "2025-01-20",
+        customer: "John Doe",
+        items: Array.from({ length: 10 }, (_, i) => ({
+          name: `Product ${i + 1}`,
+          description: `Description for Product ${i + 1}`,
+          quantity: Math.ceil(Math.random() * 10),
+          price: (Math.random() * 100).toFixed(2),
+        })),
+      },
+      {
+        number: "67890",
+        date: "2025-01-21",
+        customer: "Jane Smith",
+        items: Array.from({ length: 15 }, (_, i) => ({
+          name: `Product ${i + 1}`,
+          description: `Description for Product ${i + 1}`,
+          quantity: Math.ceil(Math.random() * 10),
+          price: (Math.random() * 100).toFixed(2),
+        })),
+      },
+      {
+        number: "11223",
+        date: "2025-01-22",
+        customer: "Alice Brown",
+        items: Array.from({ length: 5 }, (_, i) => ({
+          name: `Product ${i + 1}`,
+          description: `Description for Product ${i + 1}`,
+          quantity: Math.ceil(Math.random() * 10),
+          price: (Math.random() * 100).toFixed(2),
+        })),
+      },
+    ];
+
+    const container = document.getElementById("invoice-container");
+
+    invoices.forEach(invoice => {
+      const invoiceSection = document.createElement("div");
+      invoiceSection.classList.add("invoice-section");
+
+      let grandTotal = 0;
+      const itemsRows = invoice.items.map((item, index) => {
+        const total = item.quantity * parseFloat(item.price);
+        grandTotal += total;
+        return `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${item.name}</td>
+            <td>${item.description}</td>
+            <td>${item.quantity}</td>
+            <td>$${parseFloat(item.price).toFixed(2)}</td>
+            <td>$${total.toFixed(2)}</td>
+          </tr>
+        `;
+      }).join("");
+
+      invoiceSection.innerHTML = `
+        <div class="invoice-header">
+          <h1>Invoice #${invoice.number}</h1>
+          <p>Date: ${invoice.date}</p>
+          <p>Customer: ${invoice.customer}</p>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Item Name</th>
+              <th>Description</th>
+              <th>Quantity</th>
+              <th>Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsRows}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="5" style="text-align: right;"><strong>Grand Total:</strong></td>
+              <td>$${grandTotal.toFixed(2)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      `;
+
+      container.appendChild(invoiceSection);
+    });
+
+    function handleExport() {
+      const selectedOption = document.getElementById("exportOptions").value;
+
+      if (selectedOption === "pdf") {
+        exportToPdf();
+      } else if (selectedOption === "excel") {
+        exportToExcel();
+      } else if (selectedOption === "jpg") {
+        exportToJpg();
+      } else if (selectedOption === "dom") {
+        exportToDom();
+      } else if (selectedOption === "word") {
+        exportToWord();
+      }
+    }
+
+    async function exportToPdf() {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const container = document.getElementById("invoice-container");
+      const canvas = await html2canvas(container, { scale: 2 });
+      const imgData = canvas.toDataURL("image/png");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      pdf.addImage(imgData, "PNG", 0, 10, pdfWidth, pdfHeight);
+      pdf.save("invoice-report.pdf");
+    }
+
+    async function exportToExcel() {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Invoices");
+
+      worksheet.columns = [
+        { header: "Invoice Number", key: "number", width: 15 },
+        { header: "Date", key: "date", width: 15 },
+        { header: "Customer", key: "customer", width: 25 },
+        { header: "Item Name", key: "item", width: 20 },
+        { header: "Description", key: "description", width: 30 },
+        { header: "Quantity", key: "quantity", width: 10 },
+        { header: "Price", key: "price", width: 10 },
+        { header: "Total", key: "total", width: 10 },
+      ];
+
+      invoices.forEach(invoice => {
+        invoice.items.forEach(item => {
+          worksheet.addRow({
+            number: invoice.number,
+            date: invoice.date,
+            customer: invoice.customer,
+            item: item.name,
+            description: item.description,
+            quantity: item.quantity,
+            price: item.price,
+            total: (item.quantity * item.price).toFixed(2),
+          });
+        });
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "invoice-report.xlsx";
+      link.click();
+    }
+
+    async function exportToJpg() {
+      const container = document.getElementById("invoice-container");
+      const canvas = await html2canvas(container, { scale: 2 });
+      const imgData = canvas.toDataURL("image/jpeg", 1.0);
+
+      const link = document.createElement("a");
+      link.href = imgData;
+      link.download = "invoice-report.jpg";
+      link.click();
+    }
+
+    function exportToDom() {
+      const container = document.getElementById("invoice-container");
+      const domContent = container.outerHTML;
+      const blob = new Blob([domContent], { type: "text/html" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "invoice-report.html";
+      link.click();
+    }
+
+    function exportToWord() {
+      const content = document.getElementById("invoice-container").outerHTML;
+      const blob = new Blob(["\ufeff", content], { type: "application/msword" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "invoice-report.doc";
+      link.click();
+    }
+
+  </script>
+</body>
+</html>
