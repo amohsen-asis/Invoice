@@ -125,12 +125,23 @@
   </div>
 
   <script>
-    // Function to generate a random time in a 12-hour clock format
-    function generateRandomTime() {
-      const hours = Math.floor(Math.random() * 12) + 1; // Random hour (1-12)
-      const minutes = Math.floor(Math.random() * 60); // Random minute (0-59)
-      const period = Math.random() > 0.5 ? "AM" : "PM"; // Randomly choose AM or PM
-      return `${hours}:${minutes.toString().padStart(2, "0")} ${period}`;
+    // Function to generate a random date and time
+    function generateRandomDateTime() {
+      const start = new Date(2025, 0, 1); // Start date (Jan 1, 2025)
+      const end = new Date(2025, 11, 31); // End date (Dec 31, 2025)
+      const randomDate = new Date(
+        start.getTime() + Math.random() * (end.getTime() - start.getTime())
+      );
+
+      const hours = randomDate.getHours();
+      const minutes = randomDate.getMinutes().toString().padStart(2, "0");
+      const period = hours >= 12 ? "PM" : "AM";
+      const formattedHours = hours % 12 || 12; // Convert to 12-hour format
+
+      const formattedDate = randomDate.toISOString().split("T")[0]; // YYYY-MM-DD
+      const formattedTime = `${formattedHours}:${minutes} ${period}`; // HH:MM AM/PM
+
+      return `${formattedDate} ${formattedTime}`; // Combine date and time
     }
 
     const invoices = [
@@ -143,7 +154,7 @@
           description: `Description for Product ${i + 1}`,
           quantity: Math.ceil(Math.random() * 10),
           price: (Math.random() * 100).toFixed(2),
-          purchaseTime: generateRandomTime(), // Random time for each row
+          purchaseTime: generateRandomDateTime(), // Random date and time for each row
         })),
       },
       {
@@ -155,7 +166,7 @@
           description: `Description for Product ${i + 1}`,
           quantity: Math.ceil(Math.random() * 10),
           price: (Math.random() * 100).toFixed(2),
-          purchaseTime: generateRandomTime(), // Random time for each row
+          purchaseTime: generateRandomDateTime(), // Random date and time for each row
         })),
       },
       {
@@ -167,7 +178,7 @@
           description: `Description for Product ${i + 1}`,
           quantity: Math.ceil(Math.random() * 10),
           price: (Math.random() * 100).toFixed(2),
-          purchaseTime: generateRandomTime(), // Random time for each row
+          purchaseTime: generateRandomDateTime(), // Random date and time for each row
         })),
       },
     ];
@@ -251,10 +262,16 @@
       const container = document.getElementById("invoice-container");
       const canvas = await html2canvas(container, { scale: 2 });
       const imgData = canvas.toDataURL("image/png");
+
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.text("Company Name", pdfWidth / 2, 10, { align: "center" });
+      pdf.text("Invoice Report", pdfWidth / 2, 20, { align: "center" });
+
+      pdf.addImage(imgData, "PNG", 0, 30, pdfWidth, pdfHeight);
+      pdf.text("© 2025 Company Name", pdfWidth / 2, pdf.internal.pageSize.getHeight() - 10, { align: "center" });
+
       pdf.save("invoice-report.pdf");
     }
 
@@ -271,7 +288,7 @@
         { header: "Quantity", key: "quantity", width: 10 },
         { header: "Price", key: "price", width: 10 },
         { header: "Total", key: "total", width: 10 },
-        { header: "Purchase Time", key: "purchaseTime", width: 15 },
+        { header: "Purchase Time", key: "purchaseTime", width: 25 },
       ];
 
       invoices.forEach(invoice => {
@@ -290,10 +307,16 @@
         });
       });
 
+      worksheet.addRow([]);
+      const row = worksheet.addRow(["© 2025 Company Name"]);
+      row.font = { italic: true };
+      row.alignment = { horizontal: "center" };
+
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
+
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = "invoice-report.xlsx";
